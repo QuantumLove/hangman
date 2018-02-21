@@ -18,3 +18,12 @@ class Highscores(db.Model):
 
     def __repr__(self):
         return self.name
+
+
+class Session(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+    session = db.Column(JSON)
+
+    def __repr__(self):
+        return 'session %d' % self.id
