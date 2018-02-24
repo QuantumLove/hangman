@@ -12,59 +12,104 @@ db = SQLAlchemy(app)
 from models import *
 
 # TODO: App cannot return server info on 500
+# TODO: Add documentation
+# TODO: Refactor score into global variables
 
 
 @app.route('/start', methods=['POST'])
 def start_game():
     session['lives'] = 6
     session['score'] = 0
+
     session.pop('word', None)
+
     return 'Session created'
 
 
 @app.route('/newLevel', methods=['POST'])
 def get_level():
-    if 'lives' in session and 'word' not in session:
-        if session['lives'] > 0:
-            # Choose a word
-            row = db.session.query(Words).order_by(func.rand()).first
+    if 'lives' in session and session['lives'] > 0 and 'word' not in session:
+        session['guesses'] = []
+        session['correct_guesses'] = 0
 
-            # Warning: Assumes there are words in the database
+        # Choose a word
+        row = db.session.query(Words).order_by(func.rand()).first
 
-            print("Word is %s, spaces are %d, and category is %s".format(row.word, len(row.word), row.category))
+        # Warning: Assumes that there are words in the database TODO: Correct this
 
-            session['word'] = row.word
-            session['hint'] = row.hint
+        print("Word is %s, spaces are %d, and category is %s".format(row.word, len(row.word), row.category))
 
-            return row
+        session['word'] = list(row.word)
+        session['hint'] = row.hint
+
+        resp = jsonify({'spaces': len(session['word']),
+                        'category': row.category
+                        })
+        resp.status_code = 200
+
+        return resp
     else:
-        return 'Invalid'
+        return 'Invalid', 400
 
 
 @app.route('/hint', methods=['POST'])
 def get_hint():
     if 'word' in session and 'hint' in session:
-        session['score'] -= 30
-        return session['hint']
+        session['score'] -= 50
+
+        resp = jsonify({'hint': session['hint']})
+        resp.status_code = 200
+        return resp
     else:
-        return 'Invalid'
+        return 'Invalid', 400
 
 
 @app.route('/play', methods=['POST'])
 def choose_letter():
 
     data = request.get_json(force=True)
-    if 'lives' in session and 'word' in session and 'letter' in data:
-        if session['lives'] > 0:
-            pass
-            # Check if letter is valid
 
-            # TODO: Make response JSON
-            # Return the letter position(s) or a big fat NO (remaining lives)
-            # Also Return the score
+    if 'lives' in session and session['lives'] > 0 and \
+            'word' in session and 'letter' in data and \
+            data['letter'] not in session['guesses']:
+
+        session['guesses'].append(data['letter'])
+
+        # Check if letter is in the word
+        correct = False
+        positions = []
+        for i in range(len(session['word'])):
+            if data['letter'] == session['word'][i]:
+                session['score'] += 10
+                session['correct_guesses'] += 1
+                positions.append(i)
+
+        if not correct:
+            session['score'] -= 5
+            session['lives'] -= 1
+            result = 'lost' if session['lives'] <= 0 else 'incorrect'
+
+            resp = jsonify({'result': result,
+                            'score': session['score']})
+
+        # Win condition
+        elif session['correct_guesses'] == len(session['word']):
+            session['score'] += 50
+            session.pop('word', None)
+            resp = jsonify({'result': 'win',
+                            'score': session['score']})
+
+        else: # Correct guess
+            resp = jsonify({'result': 'correct',
+                            'positions': positions,
+                            'score': session['score']})
+
+        session.modified = True
+        resp.status_code = 200
+        return resp
 
     else:
-        return 'Invalid'
+        return 'Invalid', 400
 
 
 @app.route('/highscores', methods=['GET'])
@@ -77,7 +122,7 @@ def highscores():
 def submit_score():
     data = request.get_json(force=True)
 
-    if 'score' in session and 'name' in data:
+    if 'lives' in session and session['lives'] == 0 and 'score' in session and 'name' in data:
 
         # Submit the gotten score
         highscore = Highscores(name=data['name'], score=session['score'])
@@ -92,9 +137,9 @@ def submit_score():
                 db.session.delete(record)
             db.session.commit()
 
-        return 'Successfully submitted the score'
+        return 'Successfully submitted the score', 200
     else:
-        return 'Invalid'
+        return 'Invalid', 400
 
 
 @app.route('/', methods=['GET'])
@@ -121,7 +166,7 @@ def index():
 #         db.session.add(word)
 #     db.session.commit()
 #
-#     return 'Number of words ' + str(db.session.query(Words).count())
+#     return 'Number of words in the database ' + str(db.session.query(Words).count())
 
 if __name__ == '__main__':
     app.run()
