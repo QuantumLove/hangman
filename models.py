@@ -1,5 +1,4 @@
 from app import db
-from sqlalchemy.dialects.postgresql import JSON
 
 
 class Words(db.Model):
@@ -18,6 +17,9 @@ class Highscores(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(20), nullable=False)
     score = db.Column(db.Integer)
+
+    def to_dict(self):
+        return {'name': self.name, 'score': self.score}
 
     def __repr__(self):
         return self.name

@@ -7,6 +7,10 @@ body {
     font-size:18px;
 }
 
+.container {
+    background: #82d2e5;
+}
+
 .jumbotron {
     background: #5cacbc;
 }

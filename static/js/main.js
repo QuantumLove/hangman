@@ -2,19 +2,36 @@
 
     'use strict';
 
-    angular.module('HangmanApp', [])
+    angular.module('HangmanApp', ['ngMaterial'])
 
-    .controller('HangmanController', ['$scope', '$log', '$http', '$timeout',
-    function($scope, $log, $http, $timeout) {
+    .controller('HangmanController', ['$scope', '$log', '$http', '$timeout', '$mdDialog',
+    function($scope, $log, $http, $timeout, $mdDialog) {
 
-        $scope.score = 0;
-        $scope.hangman = ["static/img/man0.png","static/img/man1.png","static/img/man2.png",
-                  "static/img/man3.png","static/img/man4.png","static/img/man5.png"];
-        $scope.lives = 6;
+        $scope.start = function() {
+
+            $scope.score = 0;
+            $scope.lives = 6;
+            $scope.category = '';
+            $scope.spaces = {};
+            $scope.hint = '';
+            $scope.win = false;
+
+            $scope.alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k',
+            'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+
+            $scope.canvas();
+
+            // Clear canvas
+            $scope.context.clearRect(0, 0, 400, 400);
+            $scope.drawFrame();
+
+            $scope.startGame();
+
+        };
 
         $scope.startGame = function() {
-
-            $log.log('Starting game');
 
             // Fire the API request JSON.stringify(data)
             $http({
@@ -23,42 +40,112 @@
                 headers: { 'Content-Type': 'application/json' },
                 data: {}
                 }).success(function(data) {
-                    console.log(data)
-                    $scope.startLevel()
+                    $scope.startLevel();
                 }).error(function(error) {
-                    $log.log(error);
+                    $log.log('error: ' + error);
             });
         };
 
         $scope.startLevel = function() {
-
-            $log.log('Starting Level');
-
-            // TODO: CleanUp letters and the rest
+            $scope.win = false;
+            $scope.hint = '';
 
             // Fire the API request
-            $http.post('/newLevel', {}).
-                success(function(results) {
-                    $log.log(results);
-                }).
-                error(function(error) {
-                    $log.log(error);
+            $http({
+                url: '/newLevel',
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                data: {}
+                }).success(function(data) {
+                    $scope.category = data.category;
+                    $scope.spaces = Array.from({length: data.spaces}, (v, i) => '_');
+                    $scope.resetChoices();
+                }).error(function(error) {
+                    $log.log('error: ' + error);
             });
 
         };
 
         $scope.chooseLetter = function(letter) {
 
-            $log.log('Choosing letter: ' + letter);
+            if($scope.lives <= 0 || $scope.win == true) return;
+
+            var key = angular.element(document.querySelector('[value="' + letter + '"]'));
+
+            // Todo: check if active in key.attr('class') to stop request
+
+            key.attr("class", "active");
 
             // Fire the API request
-            $http.post('/play', {letter: letter}).
-                success(function(results) {
-                    $log.log(results);
-                }).
-                error(function(error) {
-                    $log.log(error);
-                });
+            $http({
+                url: '/play',
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                data: {letter: letter}
+                }).success(function(data) {
+
+                    $scope.score = data.score;
+
+                    if (data.result == 'win' || data.result == 'correct') {
+                        for (var i = 0; i < data.positions.length ; i++) {
+                            $scope.spaces[data.positions[i]] = letter;
+                        }
+                    } else {
+                        $scope.incorrectGuess();
+                    }
+
+                    if (data.result == 'win') {
+                        // TODO: Do something cool when winning
+                        $scope.win = true;
+                    } else if (data.result == 'lost') {
+                        $scope.promptName();
+                    };
+
+                }).error(function(error) {
+                    $log.log('error: ' + error);
+            });
+
+        };
+
+
+        $scope.getHint = function() {
+
+            // Fire the API request
+            $http({
+                url: '/hint',
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                data: {}
+                }).success(function(data) {
+                    $log.log('...Got the hint!');
+                    $scope.hint = data.hint;
+                    $scope.score = data.score;
+                }).error(function(error) {
+                    $log.log('error: ' + error);
+            });
+
+        };
+
+        $scope.promptName = function(event) {
+            var confirm = $mdDialog.prompt()
+                .title('You lost!')
+                .textContent('Enter you name')
+                .placeholder('Your name (max 20 characters)')
+                .ariaLabel('name')
+                .targetEvent(event)
+                .ok('Submit')
+                .cancel('No thanks');
+
+            $mdDialog.show(confirm).then(function(result) {
+                // Submit
+                $scope.submitScore(result);
+                $scope.highscores();
+            }, function() {
+                // Score not saved
+                $scope.highscores();
+            });
+
+
 
         };
 
@@ -66,62 +153,134 @@
 
             //TODO: Validate name size
 
-            $log.log('Submitting name: ' + name);
-
             // Fire the API request
-            $http.post('/end', {name: name}).
-                success(function(results) {
-                    $log.log(results);
-                }).
-                error(function(error) {
-                    $log.log(error);
-                });
+            $http({
+                url: '/end',
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                data: {name: name}
+                }).success(function(data) {
+
+                }).error(function(error) {
+                    $log.log('error: ' + error);
+            });
 
         };
-
 
         $scope.highscores = function() {
 
-            $log.log('Getting highscores');
-
             // Fire the API request
-            $http.get('/highscores').
-                success(function(results) {
-                    $log.log(results);
-                }).
-                error(function(error) {
-                    $log.log(error);
-                });
+            $http({
+                url: '/highscores',
+                method: "GET"
+                }).success(function(data) {
+                    // Open scores
+                    $scope.scores = data.scores;
+                    $mdDialog.show({
+                        //targetEvent: $event,
+                        template:
+                        '<md-dialog>' +
 
+                        '  <md-dialog-content>' +
+                        '    <h3>Highscores</h3>' +
+                        '    <table class="table table-hover">' +
+                        '      <thead>' +
+                        '        <tr>' +
+                        '          <th>Name</th>' +
+                        '          <th>Score</th>' +
+                        '        </tr>' +
+                        '      </thead>' +
+                        '      <tbody>' +
+                        '        <tr ng-repeat="score in scores">' +
+                        '          <td>{{ score.name }}</td>' +
+                        '          <td>{{ score.score }}</td>' +
+                        '        </tr>' +
+                        '      </tbody>' +
+                        '    </table>' +
+                        '  </md-dialog-content>' +
+                        '  <md-dialog-actions>' +
+                        '    <md-button ng-click="close()" class="md-primary">' +
+                        '      Close' +
+                        '    </md-button>' +
+                        '  </md-dialog-actions>' +
+                        '</md-dialog>',
+                        scope: angular.extend($scope.$new(), { close: function() {$mdDialog.cancel();} })
+                        //controller: 'GreetingController',
+                        //onComplete: afterShowAnimation,
+                        //locals: { employee: $scope.userName }
+                    });
+
+                }).error(function(error) {
+                    $log.log('error: ' + error);
+            });
         };
 
-        $scope.start = function() {
 
-            $log.log('Starting Application');
 
-            var alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
-            'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-            't', 'u', 'v', 'w', 'x', 'y', 'z'];
-
-            // Create alphabet ul
-            var buttons = function () {
-                myButtons = document.getElementById('buttons');
-                letters = document.createElement('ul');
-
-                for (var i = 0; i < alphabet.length; i++) {
-                    letters.id = 'alphabet';
-                    list = document.createElement('li');
-                    list.id = 'letter';
-                    list.innerHTML = alphabet[i];
-                    check();
-                    myButtons.appendChild(letters);
-                    letters.appendChild(list);
-                }
+        // Auxiliary
+        $scope.resetChoices = function() {
+            for (var i = 0; i < $scope.alphabet.length ; i++) {
+                var key = angular.element(document.querySelector('[value="' + $scope.alphabet[i] + '"]'));
+                key.removeAttr("class", "active");
             }
-
-            $scope.startGame();
-
         };
+
+        $scope.incorrectGuess = function () {
+            $scope.drawArray[--$scope.lives]();
+        }
+
+
+        // Hangman graphics
+        $scope.canvas =  function(){
+            var canvas = document.getElementById('hangman');
+            $scope.context = canvas.getContext('2d');
+            $scope.context.beginPath();
+            $scope.context.strokeStyle = "#fff";
+            $scope.context.lineWidth = 2;
+        };
+
+        var draw = function($pathFromx, $pathFromy, $pathTox, $pathToy) {
+
+            // TODO: Make it animated
+            $scope.context.moveTo($pathFromx, $pathFromy);
+            $scope.context.lineTo($pathTox, $pathToy);
+            $scope.context.stroke();
+        }
+
+        $scope.drawFrame = function() {
+            draw (0, 150, 150, 150);
+            draw (10, 0, 10, 600);
+            draw (0, 5, 70, 5);
+            draw (60, 5, 60, 15);
+        };
+
+        var head = function(){
+            $scope.context.beginPath();
+            $scope.context.arc(60, 25, 10, 0, Math.PI*2, true);
+            $scope.context.stroke();
+        }
+
+        var torso = function() {
+            draw (60, 36, 60, 70);
+        };
+
+        var rightArm = function() {
+            draw (60, 46, 100, 50);
+        };
+
+        var leftArm = function() {
+            draw (60, 46, 20, 50);
+        };
+
+        var rightLeg = function() {
+            draw (60, 70, 100, 100);
+        };
+
+        var leftLeg = function() {
+            draw (60, 70, 20, 100);
+        };
+
+        $scope.drawArray = [rightLeg, leftLeg, rightArm, leftArm,  torso,  head];
 
   }])
 

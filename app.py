@@ -13,17 +13,18 @@ from models import *
 
 # TODO: App cannot return server info on 500
 # TODO: Add documentation
-# TODO: Refactor score into global variables
+# TODO: Refactor score changes into the config file
 
 
 @app.route('/start', methods=['POST'])
 def start_game():
     session['lives'] = 6
     session['score'] = 0
+    session['scoreSubmited'] = False
 
     session.pop('word', None)
 
-    return 'Session created'
+    return 'Session Created'
 
 
 @app.route('/newLevel', methods=['POST'])
@@ -32,12 +33,16 @@ def get_level():
         session['guesses'] = []
         session['correct_guesses'] = 0
 
+        if db.session.query(Words).count() == 0:
+            return 'There are no available words at the moment!', 200
+
         # Choose a word
-        row = db.session.query(Words).order_by(func.rand()).first
+        row = db.session.query(Words).order_by(func.random()).first()
 
-        # Warning: Assumes that there are words in the database TODO: Correct this
-
-        print("Word is %s, spaces are %d, and category is %s".format(row.word, len(row.word), row.category))
+        word = row.word
+        spaces = len(row.word)
+        category = row.category
+        print("Word is " + word + ", spaces are " + str(spaces) + ", and category is " + category)
 
         session['word'] = list(row.word)
         session['hint'] = row.hint
@@ -55,9 +60,9 @@ def get_level():
 @app.route('/hint', methods=['POST'])
 def get_hint():
     if 'word' in session and 'hint' in session:
-        session['score'] -= 50
+        session['score'] -= 30
 
-        resp = jsonify({'hint': session['hint']})
+        resp = jsonify({'hint': session['hint'], 'score': session['score']})
         resp.status_code = 200
         return resp
     else:
@@ -79,7 +84,8 @@ def choose_letter():
         correct = False
         positions = []
         for i in range(len(session['word'])):
-            if data['letter'] == session['word'][i]:
+            if data['letter'].upper() == session['word'][i].upper():
+                correct = True
                 session['score'] += 10
                 session['correct_guesses'] += 1
                 positions.append(i)
@@ -97,9 +103,11 @@ def choose_letter():
             session['score'] += 50
             session.pop('word', None)
             resp = jsonify({'result': 'win',
+                            'positions': positions,
                             'score': session['score']})
 
-        else: # Correct guess
+        # Correct guess
+        else:
             resp = jsonify({'result': 'correct',
                             'positions': positions,
                             'score': session['score']})
@@ -115,19 +123,26 @@ def choose_letter():
 @app.route('/highscores', methods=['GET'])
 def highscores():
     # Return the top 20 highscores TODO: Make it Json
-    return db.session.query(Highscores).order_by(desc(Highscores.score))
+    scores = db.session.query(Highscores).order_by(desc(Highscores.score)).all()
+
+    resp = jsonify({'scores': [row.to_dict() for row in scores]})
+    resp.status_code = 200
+    return resp
 
 
 @app.route('/end', methods=['POST'])
 def submit_score():
     data = request.get_json(force=True)
 
-    if 'lives' in session and session['lives'] == 0 and 'score' in session and 'name' in data:
+    if 'lives' in session and session['lives'] == 0 and 'score' in session and \
+                    'name' in data and not session['scoreSubmited']:
 
         # Submit the gotten score
         highscore = Highscores(name=data['name'], score=session['score'])
         db.session.add(highscore)
         db.session.commit()
+
+        session['scoreSubmited'] = True
 
         # Delete scores if there are more than 20
         count = db.session.query(Highscores).count()
@@ -147,26 +162,29 @@ def index():
     return render_template('index.html')
 
 
-# Put some initial entries in the database
-# @app.route('/init', methods=['GET'])
-# def initialize_db():
-#
-#     db.session.query(Words).delete()
-#     db.session.commit()
-#
-#     words = [
-#         Words(word='3dhubs', hint='Your go-to service for ordering custom parts online', category='Companies'),
-#         Words(word='marvin', hint='Aka the paranoid Android', category="The Hitchhiker's Guide to the Galaxy"),
-#         Words(word='print', hint='Now a function, not a statement', category='Python'),
-#         Words(word='filament', hint='Used for fused deposition modeling', category='Materials'),
-#         Words(word='order', hint='line, plan, regulation, rule, structure, system, neatness', category='Nouns'),
-#         Words(word='layer', hint='A person or thing that lays', category='Occupations')
-#     ]
-#     for word in words:
-#         db.session.add(word)
-#     db.session.commit()
-#
-#     return 'Number of words in the database ' + str(db.session.query(Words).count())
+@app.route('/init', methods=['GET'])
+def initialize_db():
+    """ Put some initial entries in the database"""
+
+    if db.session.query(Words).count() > 0:
+        return 'The database has already been initialized'
+
+    db.session.query(Words).delete()
+    db.session.commit()
+
+    words = [
+        Words(word='3dhubs', hint='Your go-to service for ordering custom parts online', category='Companies'),
+        Words(word='marvin', hint='AKA the depressed Android', category="The Hitchhiker's Guide to the Galaxy"),
+        Words(word='print', hint='Now a function, not a statement', category='Python'),
+        Words(word='filament', hint='Used for fused deposition modeling', category='Materials'),
+        Words(word='order', hint='line, plan, regulation, rule, structure, system, neatness', category='Nouns'),
+        Words(word='layer', hint='A person or thing that lays', category='Occupations')
+    ]
+    for word in words:
+        db.session.add(word)
+    db.session.commit()
+
+    return 'Number of words in the database ' + str(db.session.query(Words).count())
 
 if __name__ == '__main__':
     app.run()

@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html ng-app="HangmanApp">
   <head>
-    <title>Hangman</title>
+    <title>Hangman Forever</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- styles -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
 	<link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/angular_material/1.1.0/angular-material.min.css">
+
 
   </head>
   <body ng-controller="HangmanController">
     <div class="container">
 
         <div class="jumbotron">
-           <h1>Hangman</h1>
+           <h1>Hangman Forever</h1>
             <h2>Dare to stick your neck out</h2>
         </div>
 
@@ -22,26 +24,38 @@
                     {% raw %}<p class="text-center" id="score">Score: {{score}}</p>{% endraw %}
             </div>
 
-            <canvas id="stickman">This Text will show if the Browser does NOT support HTML5 Canvas tag</canvas>
+            <canvas id="hangman">Your browser does NOT support HTML5 Canvas, so you cannot see the hangman</canvas>
 
-            <div id="hold"></div>
+            <div id="word">
+                <ul id="my-word" ng-show="spaces">
+                    {% raw %}<li ng-repeat="space in spaces track by $index">{{space}}</li>{% endraw %}
+                </ul>
+            </div>
 
-            <p id="catagoryName"></p>
-
-            <div class="row span10 offset-1" id="buttons"></div>
+            {% raw %}<p ng-show="category">The category is: {{category}}</p>{% endraw %}
 
             <div class="span12">
-                {% raw %}<p class="text-center" id="lives">Remaining lives: {{lives}}</p>{% endraw %}
+                {% raw %}<p class="text-center" ng-show="hint">Hint: {{hint}}</p>{% endraw %}
+            </div>
+
+            <div class="row span10 offset-1">
+                <ul id="alphabet">
+                    {% raw %}<li value="{{letter}}" ng-repeat="letter in alphabet" ng-click="chooseLetter(letter)">{{letter}}</li>{% endraw %}
+                </ul>
             </div>
 
             <div class="span12">
-                {% raw %}<p class="text-center" id="clue">{{clue}}</p>{% endraw %}
+                {% raw %}<p class="text-center">Remaining lives: {{lives}}</p>{% endraw %}
             </div>
 
             <div class="container">
-              <button id="hint">Hint (-30 points)</button>
-              <button id="reset">Play again</button>
+              <button ng-click="getHint()">Hint (-30 Points)</button>
+              <button ng-click="start()" ng-show="lives <= 0">Play Again</button>
+              <button ng-click="startLevel()" ng-show="win">Next Level</button>
+              <button ng-click="highscores()" ng-show="lose">Submit Score</button>
+              <button ng-click="highscores()">Highscores</button>
             </div>
+
         </div>
 
     </div>
@@ -49,11 +63,16 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
 
-    <script src="/static/lib/angular/angular.js"></script>
-	<script src="/static/lib/angular/angular-resource.js"></script>
+    <!-- Angular Material requires Angular.js Libraries -->
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.5.5/angular.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.5.5/angular-animate.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.5.5/angular-aria.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.5.5/angular-messages.min.js"></script>
+
+    <!-- Angular Material Library -->
+    <script src="http://ajax.googleapis.com/ajax/libs/angular_material/1.1.0/angular-material.min.js"></script>
 
     <script src="/static/js/main.js"></script>
-    <script src="/static/js/hangman.js"></script>
 
     <div ng-init="start()"></div>
   </body>
