@@ -1,22 +1,27 @@
 import os
-from flask import Flask, render_template, request, session, jsonify
+from flask import Flask, Blueprint, render_template, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql.expression import func, desc
-
-app = Flask(__name__)
-app.secret_key = os.urandom(24)
-app.config.from_object(os.environ['APP_SETTINGS'])
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
-from models import *
 
 # TODO: App cannot return server info on 500
 # TODO: Add documentation
 # TODO: Refactor score changes into the config file
 
+bp = Blueprint('Hangman', __name__)
 
-@app.route('/start', methods=['POST'])
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(os.environ['APP_SETTINGS'])
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.secret_key = os.urandom(24)
+
+    app.register_blueprint(bp)
+    db.init_app(app)
+    return app
+
+
+@bp.route('/start', methods=['POST'])
 def start_game():
     session['lives'] = 6
     session['score'] = 0
@@ -24,10 +29,10 @@ def start_game():
 
     session.pop('word', None)
 
-    return 'Session Created'
+    return 'Session Created', 200
 
 
-@app.route('/newLevel', methods=['POST'])
+@bp.route('/newLevel', methods=['POST'])
 def get_level():
     if 'lives' in session and session['lives'] > 0 and 'word' not in session:
         session['guesses'] = []
@@ -42,7 +47,7 @@ def get_level():
         word = row.word
         spaces = len(row.word)
         category = row.category
-        print("Word is " + word + ", spaces are " + str(spaces) + ", and category is " + category)
+        # print("Word is " + word + ", spaces are " + str(spaces) + ", and category is " + category)
 
         session['word'] = list(row.word)
         session['hint'] = row.hint
@@ -57,7 +62,7 @@ def get_level():
         return 'Invalid', 400
 
 
-@app.route('/hint', methods=['POST'])
+@bp.route('/hint', methods=['POST'])
 def get_hint():
     if 'word' in session and 'hint' in session:
         session['score'] -= 30
@@ -69,7 +74,7 @@ def get_hint():
         return 'Invalid', 400
 
 
-@app.route('/play', methods=['POST'])
+@bp.route('/play', methods=['POST'])
 def choose_letter():
 
     data = request.get_json(force=True)
@@ -120,9 +125,9 @@ def choose_letter():
         return 'Invalid', 400
 
 
-@app.route('/highscores', methods=['GET'])
+@bp.route('/highscores', methods=['GET'])
 def highscores():
-    # Return the top 20 highscores TODO: Make it Json
+    """Return the top 20 highscores"""
     scores = db.session.query(Highscores).order_by(desc(Highscores.score)).all()
 
     resp = jsonify({'scores': [row.to_dict() for row in scores]})
@@ -130,7 +135,7 @@ def highscores():
     return resp
 
 
-@app.route('/end', methods=['POST'])
+@bp.route('/end', methods=['POST'])
 def submit_score():
     data = request.get_json(force=True)
 
@@ -157,12 +162,12 @@ def submit_score():
         return 'Invalid', 400
 
 
-@app.route('/', methods=['GET'])
+@bp.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
 
 
-@app.route('/init', methods=['GET'])
+@bp.route('/init', methods=['GET'])
 def initialize_db():
     """ Put some initial entries in the database"""
 
@@ -185,6 +190,10 @@ def initialize_db():
     db.session.commit()
 
     return 'Number of words in the database ' + str(db.session.query(Words).count())
+
+db = SQLAlchemy()
+app = create_app()
+from models import *
 
 if __name__ == '__main__':
     app.run()
