@@ -117,7 +117,6 @@
                 headers: { 'Content-Type': 'application/json' },
                 data: {}
                 }).success(function(data) {
-                    $log.log('...Got the hint!');
                     $scope.hint = data.hint;
                     $scope.score = data.score;
                 }).error(function(error) {
@@ -129,7 +128,7 @@
         $scope.promptName = function(event) {
             var confirm = $mdDialog.prompt()
                 .title('You lost!')
-                .textContent('Enter you name')
+                .textContent('Submit your score')
                 .placeholder('Your name (max 20 characters)')
                 .ariaLabel('name')
                 .targetEvent(event)

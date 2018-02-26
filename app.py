@@ -78,9 +78,6 @@ def get_hint():
 def choose_letter():
     data = request.get_json(force=True)
 
-    print(data)
-    print(session)
-
     if 'lives' in session and session['lives'] > 0 and \
                     'word' in session and 'letter' in data and \
                     data['letter'] not in session['guesses']:
@@ -124,7 +121,7 @@ def choose_letter():
         return resp
 
     else:
-        return 'Session: ', str(session), 400
+        return 'Invalid', 400
 
 
 @bp.route('/highscores', methods=['GET'])
