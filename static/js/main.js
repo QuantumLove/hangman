@@ -178,32 +178,7 @@
                     $scope.scores = data.scores;
                     $mdDialog.show({
                         //targetEvent: $event,
-                        template:
-                        '<md-dialog>' +
-
-                        '  <md-dialog-content>' +
-                        '    <h3>Highscores</h3>' +
-                        '    <table class="table table-hover">' +
-                        '      <thead>' +
-                        '        <tr>' +
-                        '          <th>Name</th>' +
-                        '          <th>Score</th>' +
-                        '        </tr>' +
-                        '      </thead>' +
-                        '      <tbody>' +
-                        '        <tr ng-repeat="score in scores">' +
-                        '          <td>{{ score.name }}</td>' +
-                        '          <td>{{ score.score }}</td>' +
-                        '        </tr>' +
-                        '      </tbody>' +
-                        '    </table>' +
-                        '  </md-dialog-content>' +
-                        '  <md-dialog-actions>' +
-                        '    <md-button ng-click="close()" class="md-primary">' +
-                        '      Close' +
-                        '    </md-button>' +
-                        '  </md-dialog-actions>' +
-                        '</md-dialog>',
+                        template:'static/partials/highscores.html',
                         scope: angular.extend($scope.$new(), { close: function() {$mdDialog.cancel();} })
                         //controller: 'GreetingController',
                         //onComplete: afterShowAnimation,

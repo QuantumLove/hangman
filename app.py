@@ -76,12 +76,14 @@ def get_hint():
 
 @bp.route('/play', methods=['POST'])
 def choose_letter():
-
     data = request.get_json(force=True)
 
+    print data
+    print session
+
     if 'lives' in session and session['lives'] > 0 and \
-            'word' in session and 'letter' in data and \
-            data['letter'] not in session['guesses']:
+                    'word' in session and 'letter' in data and \
+                    data['letter'] not in session['guesses']:
 
         session['guesses'].append(data['letter'])
 
@@ -139,8 +141,8 @@ def highscores():
 def submit_score():
     data = request.get_json(force=True)
 
-    if 'lives' in session and session['lives'] == 0 and 'score' in session and \
-                    'name' in data and not session['scoreSubmited']:
+    if 'lives' in session and session['lives'] == 0 and \
+                    'score' in session and 'name' in data and not session['scoreSubmited']:
 
         # Submit the gotten score
         highscore = Highscores(name=data['name'], score=session['score'])
@@ -190,6 +192,7 @@ def initialize_db():
     db.session.commit()
 
     return 'Number of words in the database ' + str(db.session.query(Words).count())
+
 
 db = SQLAlchemy()
 app = create_app()
