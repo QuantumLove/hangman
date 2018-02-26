@@ -78,8 +78,8 @@ def get_hint():
 def choose_letter():
     data = request.get_json(force=True)
 
-    print data
-    print session
+    print(data)
+    print(session)
 
     if 'lives' in session and session['lives'] > 0 and \
                     'word' in session and 'letter' in data and \
