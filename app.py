@@ -14,7 +14,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(os.environ['APP_SETTINGS'])
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.secret_key = os.urandom(24)
+    app.secret_key = 'MYSECRETKEYDONOTREADTHIS' # Should be : app.secret_key = os.urandom(24) But this conflicts with Heroku's dyno system
 
     app.register_blueprint(bp)
     db.init_app(app)
@@ -124,7 +124,7 @@ def choose_letter():
         return resp
 
     else:
-        return 'Invalid', 400
+        return 'Session: ', str(session), 400
 
 
 @bp.route('/highscores', methods=['GET'])
